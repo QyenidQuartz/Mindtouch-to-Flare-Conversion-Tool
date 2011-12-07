@@ -94,17 +94,23 @@ def data_handler_content_element(data):
 def end_content_element(name):
 	pass
 
+# If we have command line params use those
+# If we don't, defer to "Interactive" mode and prompt for the url
+
 print('MindTouch to HTM Conversion Script\nWritten by Ryan Cerniglia\nLast Updated 2011-11-28')
 #baseURL = input('URL: ')
 baseURL = 'http://wiki.us.sios.com/'
 url = baseURL
 # Add the suffix for the main pages listing
+
 url += '@api/deki/pages'
 		
 print("Connecting to " + url)
 u = urllib.request.urlopen(url)
 
 global storageLocation
+# Add a command-line option to specify the path 
+# Add something in intractive-mode to copy it to
 storageLocation = 'C:\\' + baseURL.split('http://')[1]
 
 if not os.path.isdir(storageLocation):
@@ -121,3 +127,4 @@ XMLparser.Parse(u.read(), True)
 
 # Clip links
 # Copy images locally
+# Convert ot Flare format
