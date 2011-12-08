@@ -14,35 +14,37 @@ print "Mindtouch Wiki to Flare Project Conversion Tool"
 def interactive_mode():
     try:
         url = get_url()
+        directory = get_directory()
     except:
-        print "Could not get URL or directory"
         raise
+    return [url, directory]
 
 def get_url():
-    print "Please provide the front-page URL of the help system (example: http://www.example.com/wiki/):"
-    url = raw_input("URL: ")
-    try:
-       url = verify_url(url)
-    except:
-        if raw_input("Error while verifying url, continue? ") in {"no", "n", "No", "N"}:
-            raise
+    url_is_ok = False
+    while not url_is_ok:
+        print "Please provide the front-page URL of the help system (example: http://www.example.com/wiki/):"
+        url = raw_input("URL: ")
+        try:
+           url = verify_url(url)
+           url_is_ok = True
+        except:
+            if raw_input("Error while verifying url, continue? ") in {"no", "n", "No", "N"}:
+                raise
         else:
-            url = get_url()
-    else:
-        return url
+            return url
 
 def get_directory():
-    print "Please provide the local directory where you want to save the Flare project to:"
-    directory = raw_input("Directory: ")
-    try:
-       directory = verify_directory(directory)
-    except:
-        if raw_input("Error while verifying directory, continue? ") in {"no", "n", "No", "N"}:
-            raise
+    directory_is_ok = False
+    while not directory_is_ok:
+        print "Please provide the local directory where you want to save the Flare project to (leave blank for current directory):"
+        directory = raw_input("Directory: ")
+        try:
+           directory = verify_directory(directory)
+        except:
+            if raw_input("Error while verifying directory, continue? ") in {"no", "n", "No", "N"}:
+                raise
         else:
-            directory = get_directory()
-    finally:
-        return directory
+            return directory
 
 def verify_url(url):
     # Make sure we have a url
@@ -89,20 +91,44 @@ def verify_url(url):
         print "Unknown error accessing " + url
         raise
     return url
+
 def verify_directory(directory):
     if directory == "":
-        pass
-
-
+        directory = os.getcwd()
+    if os.access(directory, os.W_OK):
+        print "Able to access " + directory
+        return directory
+    else:
+        print "Unable to access " + directory
+        if raw_input("Try to create " + directory + "? ") in {"Yes", "yes", "Y", "y"}:
+            try:
+                os.makedirs(directory)
+                os.access(directory, os.W_OK)
+            except os.error, e:
+                print e
+                raise
+            except:
+                print "Unknown error occurred when trying to create " + directory
+                raise
+            else:
+                return directory
+        else:
+            raise StandardError
+        
 # Program entry point
 url = args.url
 directory = args.output 
 if args.interactive_mode == True:
     try:
-        interactive_mode()
+        results = interactive_mode()
     except:
         print "Error occured, help system was not converted."
+    else:
+        url = results[0]
+        directory = results[1]
 else:
-    verify_url(url)
-    verify_directory(directory)
-
+    try:
+        verify_url(url)
+        verify_directory(directory)
+    except:
+        print "Error occured, help system was not converted."
