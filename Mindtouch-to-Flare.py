@@ -76,7 +76,7 @@ def verify_url(url):
         raise
         
     # Check to see if the Mindtouch API is available
-    mindtouch_api_url = url + "@api/deki/pages"
+    mindtouch_api_url = url + "@api/deki"
     try:
         print "Accessing " + mindtouch_api_url
         urllib2.urlopen(mindtouch_api_url)
@@ -123,12 +123,63 @@ if args.interactive_mode == True:
         results = interactive_mode()
     except:
         print "Error occured, help system was not converted."
+        sys.exit(1)
     else:
         url = results[0]
         directory = results[1]
 else:
     try:
-        verify_url(url)
-        verify_directory(directory)
+        url = verify_url(url)
+        directory = verify_directory(directory)
     except:
         print "Error occured, help system was not converted."
+        sys.exit(1)
+
+
+print "Beginning content download"
+
+# Go through the page listing, and start grabbing from each page
+try:
+    page_listing_url = url + "@api/deki/pages"
+    page_listing = urllib2.urlopen(page_listing_url)
+except Exception, e:
+    print "Error when accessing Mindtouch wiki page list"
+    print e
+
+try:
+    page_url = ""
+    page_title = ""
+    for event, element in etree.iterparse(page_listing, events=("start", "end")):
+        if element.tag == "page" and event == "start":
+            if "href" in element.attrib:
+                page_title = ""
+                page_url = unicode(element.attrib["href"], "ascii")
+        if element.tag == "title" and event == "end":
+            page_title = element.text
+        if page_url != "" and page_title != "":
+            print "Creating topic file " + page_title.encode('utf-8')
+            try:
+                pass
+            except:
+                print "Error creating "
+            print "Accessing " + page_url.encode('utf-8')
+            try:
+                pass
+            except:
+                pass
+            print " "
+            page_url = ""
+            page_title = ""
+except Exception, e:
+    print "Error when parsing page list"
+    raise
+
+
+
+# Create a new topic
+# Add the starting html tags
+# Set the title as the first <h1> tag in the topic
+# Copy the contents
+# Add the ending tags
+# Fix the links
+# Copy the images locally
