@@ -4,6 +4,7 @@ import os
 import sys
 import time
 from lxml import etree
+import lxml.html 
 
 # command line option parsing
 argument_parser = argparse.ArgumentParser(description='Convert a Mindtouch wiki to a Flare project')
@@ -97,7 +98,7 @@ def verify_url(url):
     try:
         print "Accessing " + mindtouch_api_url
         urllib2.urlopen(mindtouch_api_url)
-        print "Successfully accessed " + url
+        print "Successfully accessed " + mindtouch_api_url
     except urllib2.URLError, e:
         print e
         raise
@@ -105,7 +106,7 @@ def verify_url(url):
         print e
         raise
     except:
-        print "Unknown error accessing " + url
+        print "Unknown error accessing " + mindtouch_api_url
         raise
     return url
 
@@ -137,7 +138,7 @@ def verify_directory(directory):
         else:
             raise StandardError
 
-def link_path_generator(page_url, link_url):
+def link_path_generator(link_url, page_url):
     # Split these by forward slashes
     page_url_split = page_url.split('/')
     link_url_split = link_url.split('/')
@@ -147,12 +148,12 @@ def link_path_generator(page_url, link_url):
 
     # only go through the lesser length
     if len(page_url_split) > len(link_url_split):
-        segements_to_check = len(page_url_split)
+        segments_to_check = len(page_url_split)
     else:
-        segements_to_check = len(link_url_split)
+        segments_to_check = len(link_url_split)
 
     # Loop through until we see a difference
-    for i in range(segments_to_check - 1):
+    for i in range(segments_to_check):
         if page_url_split[i] != link_url_split[i]:
             equal_segments = i
             break
@@ -166,12 +167,17 @@ def link_path_generator(page_url, link_url):
     
     # If we still have chunks in the page url, then we need to prepend "../" to the link path
     for i in range(len(page_url_split)):
-        link_path = link_path + "../"
+        link_path = "../" + link_path
 
     # Everything remaining in the link URL is unique and therefore needs to be in the link path
-    for i in range(len(link_url_split)):
+    for i in range(len(link_url_split) - 1):
         link_path = link_path + link_url_split[i] + '/'
-
+    
+    # If we don't have an extension, assume it's a page link
+    # We're checking for an extension by counting how many digits from the right our last period was
+    if len(link_path.rsplit('.', 1)) <=4:
+        link_path = link_path + ".htm"
+    
     return link_path
 
 # Program entry point
@@ -277,29 +283,50 @@ try:
                         # Get the contents of the body tag, unless it has the "toc" attribute
                         if not inner_element.attrib:
                             if inner_element.tag == "body":
-                                page_contents = inner_element.text
-                                page_parser = etree.HTMLParser()
-                                page_tree = etree.parse(page_contents, page_parser)
+                                print "Parsing HTML contents"
                                 # parse through the html contents
-                                # fix links
-                                context = etree.iterwalk(root, tag="a")
+                                page_contents_tree = lxml.html.fragment_fromstring(inner_element.text, create_parent=True)
+                                context = etree.iterwalk(page_contents_tree)
                                 for action, elem in context:
-                                    if "href" in elem.attr:
-                                        elem.attr["href"] = link_path_generator(elem.attr["href"], page_url)
-                                # download and fix links to images
-                                context = etree.iterwalk(root, tag="img")
-                                for action, elem in context:
-                                    if "src" in elem.attr:
-                                        print "Copying image file " + elem.attr["src"]
-                                        image_file = 
-                                        elem.attr["src"] = link_path_generator(elem.attr["src". page_url)
-                                    # See where we need to place the image on the local drive
-                                    # Place the image there
-                                    # Fix link
-                                    
+                                    if elem.tag == "a" and "href" in elem.attrib:
+                                        # fix links
+                                        elem.attrib["href"] = link_path_generator(elem.attrib["href"], page_url)
+                                    if elem.tag == "img" and "src" in elem.attrib:
+                                        full_image_path = None
+                                        image_url = elem.attrib["src"].split('?')[0]
+                                        image_path = image_url.split(url)[1].rsplit('/', 1)[0] + "/"
+                                        image_file_path = directory + url.split('http://')[1] + image_path
+                                        image_file_name = image_url.split(url)[1].rsplit('/', 1)[1]
+                                        print "Downloading image file " + image_url
+                                        try:
+                                            image_urlobject = urllib2.urlopen(image_url)
+                                            image_object = image_urlobject.read()
+                                        except urllib2.URLError, e:
+                                            print "Error downloading image file " + image_url
+                                        except:
+                                            print "Error downloading image file " + image_url
+                                            raise
+                                        try:
+                                            os.makedirs(image_file_path.encode('utf-8'))
+                                        except:
+                                            print "Path " + image_file_path.encode('utf-8') + " already exists"
+                                        else:
+                                            print "Created path " + image_file_path.encode('utf-8')
+                                        try:
+                                            full_image_path = image_file_path + image_file_name
+                                            print "Writing image file " + full_image_path.encode('utf-8')
+                                            image_file = open(full_image_path.encode('utf-8'), 'wb')
+                                            image_file.write(image_object)
+                                        except:
+                                            print "Error writing local file " + full_image_path
+                                            raise
+                                        print "Patching image link in " + full_file_path
+                                        elem.attrib["src"] = link_path_generator(elem.attrib["src"], page_url)
+                                        
                 except:
                     print "Error parsing contents of " + page_url.encode('utf-8')
                     raise
+                page_contents = lxml.html.tostring(page_contents_tree)
             except:
                 print "Error accessing " + page_url.encode('utf-8')
                 raise
@@ -324,7 +351,7 @@ try:
             page_path = None
             file_path = None
             # Sleep so we do not over-saturate the server
-            time.sleep(5)
+            time.sleep(3)
 except Exception, e:
     print "Error when parsing page list"
     print "Help system conversion incomplete"
