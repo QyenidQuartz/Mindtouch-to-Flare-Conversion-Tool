@@ -152,6 +152,10 @@ def link_path_generator(link_url, page_url):
         segments_to_check = len(page_url_split)
     else:
         segments_to_check = len(link_url_split)
+    
+    # Check the first segment; if they are not equal it's an external link and we can return it
+    if page_url_split[0] != link_url_split[0]:
+        return link_url    
 
     # Loop through until we see a difference
     for i in range(segments_to_check):
@@ -230,7 +234,7 @@ except Exception, e:
     print "Error when accessing Mindtouch wiki page list at " + page_listing_url
     print e
 
-try:
+if True:
     page_url = None
     page_title = None
     page_path = None
@@ -302,39 +306,40 @@ try:
                                     if elem.tag == "img" and "src" in elem.attrib:
                                         full_image_path = None
                                         image_url = elem.attrib["src"].split('?')[0]
-                                        image_path = image_url.split(url)[1].rsplit('/', 1)[0] + "/"
-                                        image_file_path = directory + url.split('http://')[1] + image_path
-                                        image_file_name = image_url.split(url)[1].rsplit('/', 1)[1]
-                                        if verbose:
-                                            print "Downloading image file " + image_url
-                                        try:
-                                            image_urlobject = urllib2.urlopen(image_url)
-                                            image_object = image_urlobject.read()
-                                        except urllib2.URLError, e:
-                                            print "Error downloading image file " + image_url
-                                        except:
-                                            print "Error downloading image file " + image_url
-                                            raise
-                                        try:
-                                            os.makedirs(image_file_path.encode('utf-8'))
-                                        except:
+                                        if image_url.find(url) != -1:
+                                            image_path = image_url.split(url)[1].rsplit('/', 1)[0] + "/"
+                                            image_file_path = directory + url.split('http://')[1] + image_path
+                                            image_file_name = image_url.split(url)[1].rsplit('/', 1)[1]
                                             if verbose:
-                                                print "Path " + image_file_path.encode('utf-8') + " already exists"
-                                        else:
+                                                print "Downloading image file " + image_url
+                                            try:
+                                                image_urlobject = urllib2.urlopen(image_url)
+                                                image_object = image_urlobject.read()
+                                            except urllib2.URLError, e:
+                                                print "Error downloading image file " + image_url
+                                            except:
+                                                print "Error downloading image file " + image_url
+                                                raise
+                                            try:
+                                                os.makedirs(image_file_path.encode('utf-8'))
+                                            except:
+                                                if verbose:
+                                                    print "Path " + image_file_path.encode('utf-8') + " already exists"
+                                            else:
+                                                if verbose:
+                                                    print "Created path " + image_file_path.encode('utf-8')
+                                            try:
+                                                full_image_path = image_file_path + image_file_name
+                                                if verbose:
+                                                    print "Writing image file " + full_image_path.encode('utf-8')
+                                                image_file = open(full_image_path.encode('utf-8'), 'wb')
+                                                image_file.write(image_object)
+                                            except:
+                                                print "Error writing local file " + full_image_path
+                                                raise
                                             if verbose:
-                                                print "Created path " + image_file_path.encode('utf-8')
-                                        try:
-                                            full_image_path = image_file_path + image_file_name
-                                            if verbose:
-                                                print "Writing image file " + full_image_path.encode('utf-8')
-                                            image_file = open(full_image_path.encode('utf-8'), 'wb')
-                                            image_file.write(image_object)
-                                        except:
-                                            print "Error writing local file " + full_image_path
-                                            raise
-                                        if verbose:
-                                            print "Patching image link in " + full_file_path
-                                        elem.attrib["src"] = link_path_generator(elem.attrib["src"], page_url)
+                                                print "Patching image link in " + full_file_path
+                                            elem.attrib["src"] = link_path_generator(elem.attrib["src"], page_url)
                                         
                 except:
                     print "Error parsing contents of " + page_url.encode('utf-8')
@@ -365,8 +370,3 @@ try:
             file_path = None
             # Sleep so we do not over-saturate the server
             time.sleep(3)
-except Exception, e:
-    print "Error when parsing page list"
-    print "Help system conversion incomplete"
-    print e
-    sys.exit(1)
