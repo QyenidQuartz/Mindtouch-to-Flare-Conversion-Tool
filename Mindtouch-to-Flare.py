@@ -8,11 +8,12 @@ import lxml.html
 
 # command line option parsing
 argument_parser = argparse.ArgumentParser(description='Convert a Mindtouch wiki to a Flare project')
-argument_parser.add_argument('-i', dest='interactive_mode', help='force interactive mode', action='store_true')
+argument_parser.add_argument('-i', '--interactive', help='force interactive mode', action='store_true')
 argument_parser.add_argument('-u', '--url', help='url of a mindtouch wiki system')
 argument_parser.add_argument('-o', '--output', help='local directory to store the new help system (default: current directory)')
 argument_parser.add_argument('-a', '--username', help='username for http authentication')
 argument_parser.add_argument('-p', '--password', help='password for http authentication')
+argument_parser.add_argument('-v', '--verbose', help='turn on verbose console output', action='store_true')
 
 # interactive mode handling
 def interactive_mode():
@@ -187,7 +188,8 @@ url = args.url
 directory = args.output 
 username = args.username
 password = args.password
-if args.interactive_mode == True:
+verbose = args.verbose
+if args.interactive == True:
     try:
         results = interactive_mode()
     except:
@@ -207,9 +209,9 @@ else:
         print "Error occured, help system was not converted."
         sys.exit(1)
 
-# Make our urllib2 thing use 
+# Make our url handler use our username and password
 if username or password:
-    print "Using " + username + " with password"
+    print "Using " + username + " with a password"
     password_manager = urllib2.HTTPPasswordMgrWithDefaultRealm()
     password_manager.add_password(None, url, username, password)
     handler = urllib2.HTTPBasicAuthHandler(password_manager)
@@ -265,16 +267,19 @@ try:
             print "Creating topic file " + full_file_path.encode('utf-8')
             try:
                 os.makedirs(file_path.encode('utf-8'))
-                print "Created directory " + file_path.encode('utf-8')
+                if verbose:
+                    print "Created directory " + file_path.encode('utf-8')
             except:
-                print "Directory " + file_path.encode('utf-8') + " already exists"
+                if verbose:
+                    print "Directory " + file_path.encode('utf-8') + " already exists"
             try:
                 # Create a new topic and open it for writing 
                 f = open(full_file_path.encode('utf-8'), 'w')
             except:
                 print "Error creating file " + full_file_path.encode('utf-8')
                 raise
-            print "Accessing " + page_url.encode('utf-8')
+            if verbose:
+                print "Accessing " + page_url.encode('utf-8')
             try:
                 # Access the page URL
                 page_content_listing = urllib2.urlopen(page_url.encode('utf-8'))
@@ -283,13 +288,16 @@ try:
                         # Get the contents of the body tag, unless it has the "toc" attribute
                         if not inner_element.attrib:
                             if inner_element.tag == "body":
-                                print "Parsing HTML contents"
+                                if verbose:
+                                    print "Parsing HTML contents"
                                 # parse through the html contents
                                 page_contents_tree = lxml.html.fragment_fromstring(inner_element.text, create_parent=True)
                                 context = etree.iterwalk(page_contents_tree)
                                 for action, elem in context:
                                     if elem.tag == "a" and "href" in elem.attrib:
                                         # fix links
+                                        if verbose:
+                                            print "Patching link to " + elem.attrib["href"]
                                         elem.attrib["href"] = link_path_generator(elem.attrib["href"], page_url)
                                     if elem.tag == "img" and "src" in elem.attrib:
                                         full_image_path = None
@@ -297,7 +305,8 @@ try:
                                         image_path = image_url.split(url)[1].rsplit('/', 1)[0] + "/"
                                         image_file_path = directory + url.split('http://')[1] + image_path
                                         image_file_name = image_url.split(url)[1].rsplit('/', 1)[1]
-                                        print "Downloading image file " + image_url
+                                        if verbose:
+                                            print "Downloading image file " + image_url
                                         try:
                                             image_urlobject = urllib2.urlopen(image_url)
                                             image_object = image_urlobject.read()
@@ -309,18 +318,22 @@ try:
                                         try:
                                             os.makedirs(image_file_path.encode('utf-8'))
                                         except:
-                                            print "Path " + image_file_path.encode('utf-8') + " already exists"
+                                            if verbose:
+                                                print "Path " + image_file_path.encode('utf-8') + " already exists"
                                         else:
-                                            print "Created path " + image_file_path.encode('utf-8')
+                                            if verbose:
+                                                print "Created path " + image_file_path.encode('utf-8')
                                         try:
                                             full_image_path = image_file_path + image_file_name
-                                            print "Writing image file " + full_image_path.encode('utf-8')
+                                            if verbose:
+                                                print "Writing image file " + full_image_path.encode('utf-8')
                                             image_file = open(full_image_path.encode('utf-8'), 'wb')
                                             image_file.write(image_object)
                                         except:
                                             print "Error writing local file " + full_image_path
                                             raise
-                                        print "Patching image link in " + full_file_path
+                                        if verbose:
+                                            print "Patching image link in " + full_file_path
                                         elem.attrib["src"] = link_path_generator(elem.attrib["src"], page_url)
                                         
                 except:
@@ -356,3 +369,4 @@ except Exception, e:
     print "Error when parsing page list"
     print "Help system conversion incomplete"
     print e
+    sys.exit(1)
