@@ -5,6 +5,7 @@ import sys
 import time
 from lxml import etree
 import lxml.html 
+import StringIO
 
 # command line option parsing
 argument_parser = argparse.ArgumentParser(description='Convert a Mindtouch wiki to a Flare project')
@@ -93,12 +94,14 @@ def verify_url(url):
     except:
         print "Unknown error accessing " + url
         raise
+    finally:
+        f.close()
         
     # Check to see if the Mindtouch API is available
     mindtouch_api_url = url + "@api/deki"
     try:
         print "Accessing " + mindtouch_api_url
-        urllib2.urlopen(mindtouch_api_url)
+        f = urllib2.urlopen(mindtouch_api_url)
         print "Successfully accessed " + mindtouch_api_url
     except urllib2.URLError, e:
         print e
@@ -106,6 +109,8 @@ def verify_url(url):
         print e
     except:
         print "Unknown error accessing " + mindtouch_api_url
+    finally:
+        f.close()
     return url
 
 # Make sure we can place folders and files in the given directory
@@ -224,8 +229,9 @@ print "Beginning content download"
 # Go through the page listing, and start grabbing from each page
 try:
     page_listing_url = url + "@api/deki/pages"
-    
-    page_listing = urllib2.urlopen(page_listing_url)
+    page_listing_urlopen = urllib2.urlopen(page_listing_url)
+    page_listing = page_listing_urlopen.read()
+    page_listing_urlopen.close()
 except Exception, e:
     print "Error when accessing Mindtouch wiki page list at " + page_listing_url
     print e
@@ -234,7 +240,7 @@ page_url = None
 page_title = None
 page_path = None
 page_contents = None
-for event, element in etree.iterparse(page_listing, events=("start", "end")):
+for event, element in etree.iterparse(StringIO.StringIO(page_listing), events=("start", "end"), huge_tree=True):
     if element.tag == "page" and event == "start":
         if "href" in element.attrib:
             page_title = None
@@ -259,7 +265,9 @@ for event, element in etree.iterparse(page_listing, events=("start", "end")):
             # This is usually a self-closing tag in the XML, indicative of a root topic 
             page_path = ""
         # Make page-path
-        
+    if element.tag == "page" and event == "end":
+        element.clear()
+    
     if page_url != None and page_title != None and page_path != None:
         file_path = directory + url.split('http://')[1] + page_path
         full_file_path = file_path + page_title.replace("/", " ") + ".htm"
@@ -309,6 +317,7 @@ for event, element in etree.iterparse(page_listing, events=("start", "end")):
                                         try:
                                             image_urlobject = urllib2.urlopen(image_url)
                                             image_object = image_urlobject.read()
+                                            image_urlobject.close()
                                         except urllib2.URLError, e:
                                             print "Error downloading image file " + image_url
                                             
@@ -328,6 +337,7 @@ for event, element in etree.iterparse(page_listing, events=("start", "end")):
                                                 print "Writing image file " + full_image_path.encode('utf-8')
                                             image_file = open(full_image_path.encode('utf-8'), 'wb')
                                             image_file.write(image_object)
+                                            image_file.close()
                                         except:
                                             print "Error writing local file " + full_image_path
                                         if verbose:
@@ -337,9 +347,9 @@ for event, element in etree.iterparse(page_listing, events=("start", "end")):
             except:
                 print "Error parsing contents of " + page_url.encode('utf-8')
             page_contents = lxml.html.tostring(page_contents_tree)
+            page_content_listing.close()
         except:
             print "Error accessing " + page_url.encode('utf-8')
-            raise
         try:
             # Write the starting html content to the topic
             f.write("<html><head><title>" + page_title.encode('utf-8') + "</title></head><body>")
@@ -351,7 +361,6 @@ for event, element in etree.iterparse(page_listing, events=("start", "end")):
             f.write("</body></html>")
         except:
             print "Error writing page contents to file"
-            raise
         finally:
             f.close()
         print "Finished writing file " + full_file_path.encode('utf-8')
