@@ -148,11 +148,10 @@ def link_path_generator(link_url, page_url):
     link_path = ""
 
     # only go through the lesser length
-    if len(page_url_split) > len(link_url_split):
+    if len(page_url_split) < len(link_url_split):
         segments_to_check = len(page_url_split)
     else:
         segments_to_check = len(link_url_split)
-    
     # Check the first segment; if they are not equal it's an external link and we can return it
     if page_url_split[0] != link_url_split[0]:
         return link_url    
@@ -163,7 +162,7 @@ def link_path_generator(link_url, page_url):
             equal_segments = i
             break
     else:
-        equal_segments = len(link_url_split)
+        equal_segments = segments_to_check
 
     # Remove the common chunks from the path
     for i in range(equal_segments):
@@ -175,11 +174,15 @@ def link_path_generator(link_url, page_url):
         link_path = "../" + link_path
 
     # Everything remaining in the link URL is unique and therefore needs to be in the link path
-    for i in range(len(link_url_split) - 1):
-        link_path = link_path + link_url_split[i] + '/'
-    
-    # If we don't have an extension, assume it's a page link
-    # We're checking for an extension by counting how many digits from the right our last period was
+    if len(link_url_split) > 0:
+        for i in range(len(link_url_split) - 1):
+            link_path = link_path + link_url_split[i] + '/'
+
+        # Now add the last topic file name
+        link_path = link_path + link_url_split[len(link_url_split) - 1]
+        
+        # If we don't have an extension, assume it's a page link
+        # We're checking for an extension by counting how many digits from the right our last period was
     if len(link_path.rsplit('.', 1)) <=4:
         link_path = link_path + ".htm"
     
@@ -247,6 +250,8 @@ for event, element in etree.iterparse(StringIO.StringIO(page_listing), events=("
             page_path = None
             page_url = unicode(element.attrib["href"], "ascii") 
             page_url = page_url.split('?redirects')[0] + "/contents"
+    if element.tag == "uri.ui" and event == "end":
+        page_link_url = element.text
     if element.tag == "title" and event == "end":
         page_title = element.text
     if element.tag == "path" and event == "end":
@@ -292,7 +297,7 @@ for event, element in etree.iterparse(StringIO.StringIO(page_listing), events=("
             try:
                 for inner_event, inner_element in etree.iterparse(page_content_listing):
                     # Get the contents of the body tag, unless it has the "toc" attribute
-                    if not inner_element.attrib:
+                    if not inner_element.attrib and inner_element.tag:
                         if inner_element.tag == "body":
                             if verbose:
                                 print "Parsing HTML contents"
@@ -304,7 +309,7 @@ for event, element in etree.iterparse(StringIO.StringIO(page_listing), events=("
                                     # fix links
                                     if verbose:
                                         print "Patching link to " + elem.attrib["href"]
-                                    elem.attrib["href"] = link_path_generator(elem.attrib["href"], page_url)
+                                    elem.attrib["href"] = link_path_generator(elem.attrib["href"], page_link_url)
                                 if elem.tag == "img" and "src" in elem.attrib:
                                     full_image_path = None
                                     image_url = elem.attrib["src"].split('?')[0]
@@ -342,14 +347,16 @@ for event, element in etree.iterparse(StringIO.StringIO(page_listing), events=("
                                             print "Error writing local file " + full_image_path
                                         if verbose:
                                             print "Patching image link in " + full_file_path
-                                        elem.attrib["src"] = link_path_generator(elem.attrib["src"], page_url)
+                                        elem.attrib["src"] = link_path_generator(elem.attrib["src"], page_link_url)
                                     
             except:
                 print "Error parsing contents of " + page_url.encode('utf-8')
+                raise
             page_contents = lxml.html.tostring(page_contents_tree)
             page_content_listing.close()
         except:
             print "Error accessing " + page_url.encode('utf-8')
+            raise
         try:
             # Write the starting html content to the topic
             f.write("<html><head><title>" + page_title.encode('utf-8') + "</title></head><body>")
