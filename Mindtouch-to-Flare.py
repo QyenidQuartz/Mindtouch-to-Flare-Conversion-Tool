@@ -351,12 +351,10 @@ for event, element in etree.iterparse(StringIO.StringIO(page_listing), events=("
                                     
             except:
                 print "Error parsing contents of " + page_url.encode('utf-8')
-                raise
             page_contents = lxml.html.tostring(page_contents_tree)
             page_content_listing.close()
         except:
             print "Error accessing " + page_url.encode('utf-8')
-            raise
         try:
             # Write the starting html content to the topic
             f.write("<html><head><title>" + page_title.encode('utf-8') + "</title></head><body>")

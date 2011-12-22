@@ -1,0 +1,20 @@
+Mindtouch to Flare Conversion Tool
+==================================
+
+This script reads from a live Mindtouch wiki, and will generate a Flare project
+
+Dependencies
+----------
+python 2.7  http://python.org
+lxml        http://lxml.de
+
+Usage
+-----
+python Mindtouch-To-Flare.py --url http://wiki.example.com --output ~/mindtouch-wiki 
+This will read from the Mindtouch wiki located at http://wiki.example.com and output to a new folder "mindtouch-wiki" in your home directory
+
+Copyright
+---------
+Copyright (c) 2011 Ryan "ProgramZeta" Cerniglia
+Licensed under:
+The MIT License ./MIT-license
